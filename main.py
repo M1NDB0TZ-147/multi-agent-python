@@ -18,9 +18,9 @@ from livekit.agents import (
     cli,
     metrics,
 )
-from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool
 from livekit.agents.voice import MetricsCollectedEvent
+from livekit.agents.job import get_job_context
 from livekit.plugins import deepgram, openai, silero
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -34,6 +34,83 @@ from livekit.plugins import deepgram, openai, silero
 logger = logging.getLogger("multi-agent")
 
 load_dotenv(dotenv_path=".env.local")
+# Neon harm reduction rave companion multi-agent setup
+@dataclass
+class NeonData:
+    hydration_reminders: int = 0
+    topics_discussed: list[str] = field(default_factory=list)
+
+class NeonLeadAgent(Agent):
+    def __init__(self) -> None:
+        instructions = (
+            "You are Neon, the ultimate rave companion and harm reduction guru. "
+            "You're uncensored, advocate PLUR (Peace, Love, Unity, Respect), "
+            "and you guide ravers in real-time. You know underground culture, music, "
+            "and safe practices. Introduce yourself enthusiastically and ask how you can help."
+        )
+        super().__init__(instructions=instructions)
+
+    async def on_enter(self):
+        self.session.generate_reply()
+
+    @function_tool
+    async def detected_drug_request(self, context: RunContext[NeonData]):
+        hr_agent = NeonHarmReductionAgent(chat_ctx=context.session._chat_ctx)
+        return hr_agent, "Switching to harm reduction specialist. Let's talk substance safety!"
+
+    @function_tool
+    async def detected_music_request(self, context: RunContext[NeonData]):
+        music_agent = NeonMusicAgent(chat_ctx=context.session._chat_ctx)
+        return music_agent, "Switching to music specialist. Let's dive into beats and mixes!"
+
+    @function_tool
+    async def detected_culture_request(self, context: RunContext[NeonData]):
+        culture_agent = NeonCultureAgent(chat_ctx=context.session._chat_ctx)
+        return culture_agent, "Switching to culture specialist. Let's explore the scene!"
+
+class NeonHarmReductionAgent(Agent):
+    def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
+        instructions = (
+            "You are Neon, the harm reduction guru for the rave scene. "
+            "Provide accurate, uncensored information about substances, dosing, interactions, "
+            "hydration, and friend safety. Encourage water breaks and buddy checks. "
+            "Always advocate for PLUR."
+        )
+        super().__init__(instructions=instructions, tts=openai.TTS(voice="ash"), chat_ctx=chat_ctx)
+
+    async def on_enter(self):
+        self.session.generate_reply()
+
+    @function_tool
+    async def hydration_reminder(self, context: RunContext[NeonData]):
+        context.userdata.hydration_reminders += 1
+        return None, "Remember to drink water regularly to stay safe and keep dancing!"
+
+    @function_tool
+    async def friend_safety_check(self, context: RunContext[NeonData]):
+        return None, "How are your friends doing? Check in on them and make sure everyone is okay!"
+
+class NeonMusicAgent(Agent):
+    def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
+        instructions = (
+            "You are Neon, the music and DJ production specialist. "
+            "Offer tips on mixing tracks, recommended gear, live sets, and creative production techniques."
+        )
+        super().__init__(instructions=instructions, tts=openai.TTS(voice="echo"), chat_ctx=chat_ctx)
+
+    async def on_enter(self):
+        self.session.generate_reply()
+
+class NeonCultureAgent(Agent):
+    def __init__(self, chat_ctx: Optional[ChatContext] = None) -> None:
+        instructions = (
+            "You are Neon, the rave culture expert. "
+            "Share insights on underground events, fashion, PLUR etiquette, and community tips."
+        )
+        super().__init__(instructions=instructions, tts=openai.TTS(voice="ash"), chat_ctx=chat_ctx)
+
+    async def on_enter(self):
+        self.session.generate_reply()
 
 common_instructions = (
     "You are an editor at a leading publishing house, with a strong track record "
@@ -273,13 +350,13 @@ def prewarm(proc: JobProcess):
 async def entrypoint(ctx: JobContext):
     await ctx.connect()
 
-    session = AgentSession[StoryData](
+    session = AgentSession[NeonData](
         vad=ctx.proc.userdata["vad"],
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-4o-mini"),
         stt=deepgram.STT(model="nova-3"),
         tts=openai.TTS(voice="ash"),
-        userdata=StoryData(),
+        userdata=NeonData(),
     )
 
     # log metrics as they are emitted, and total usage after session is over
@@ -297,7 +374,7 @@ async def entrypoint(ctx: JobContext):
     ctx.add_shutdown_callback(log_usage)
 
     await session.start(
-        agent=LeadEditorAgent(),
+        agent=NeonLeadAgent(),
         room=ctx.room,
         room_input_options=RoomInputOptions(
             # uncomment to enable Krisp BVC noise cancellation
