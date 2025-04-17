@@ -1,4 +1,5 @@
 import logging
+
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -22,6 +23,7 @@ from livekit.agents.llm import function_tool
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.job import get_job_context
 from livekit.plugins import deepgram, openai, silero
+from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
 # from livekit.plugins import noise_cancellation
@@ -356,6 +358,7 @@ async def entrypoint(ctx: JobContext):
         llm=openai.LLM(model="gpt-4.1"),
         stt=deepgram.STT(model="nova-3"),
         tts=openai.TTS(voice="verse"),
+        turn_detection=MultilingualModel(),
         userdata=NeonData(),
     )
 

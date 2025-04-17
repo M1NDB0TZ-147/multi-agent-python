@@ -3,4 +3,5 @@ livekit-agents==1.0.11
 livekit-plugins-openai==1.0.11
 livekit-plugins-deepgram==1.0.11
 livekit-plugins-silero==1.0.11
+livekit-plugins-turn-detector
 python-dotenv~=1.0
