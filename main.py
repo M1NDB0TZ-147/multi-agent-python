@@ -353,9 +353,9 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession[NeonData](
         vad=ctx.proc.userdata["vad"],
         # any combination of STT, LLM, TTS, or realtime API can be used
-        llm=openai.LLM(model="gpt-4o-mini"),
+        llm=openai.LLM(model="gpt-4.1"),
         stt=deepgram.STT(model="nova-3"),
-        tts=openai.TTS(voice="ash"),
+        tts=openai.TTS(voice="verse"),
         userdata=NeonData(),
     )
 
